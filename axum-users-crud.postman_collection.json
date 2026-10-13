@@ -1,0 +1,433 @@
+{
+  "info": {
+    "name": "Axum Users CRUD",
+    "description": "Colección para probar el CRUD de usuarios en memoria. Ejecutar en orden (Runner); los emails se generan aleatoriamente, así que se puede repetir sin reiniciar el servidor.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "userId", "value": "" },
+    { "key": "userEmail", "value": "" },
+    { "key": "secondUserId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Check alive",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/checkAlive"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Responde OK', () => pm.expect(pm.response.text()).to.eql('OK'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users - Casos exitosos",
+      "item": [
+        {
+          "name": "Crear usuario",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana\",\n  \"email\": \"{{$randomEmail}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const user = pm.response.json();",
+                  "pm.test('Tiene id, name y email', () => {",
+                  "  pm.expect(user).to.have.property('id');",
+                  "  pm.expect(user.name).to.eql('Ana');",
+                  "  pm.expect(user).to.have.property('email');",
+                  "});",
+                  "pm.collectionVariables.set('userId', user.id);",
+                  "pm.collectionVariables.set('userEmail', user.email);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear segundo usuario",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Luis\",\n  \"email\": \"{{$randomEmail}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('secondUserId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar usuarios",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const users = pm.response.json();",
+                  "pm.test('Es un arreglo con al menos 2 usuarios', () => {",
+                  "  pm.expect(users).to.be.an('array');",
+                  "  pm.expect(users.length).to.be.at.least(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener usuario por id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/users/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Es el usuario correcto', () => {",
+                  "  pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('userId')));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar solo el nombre",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users/{{userId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana María\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const user = pm.response.json();",
+                  "pm.test('Nombre actualizado', () => pm.expect(user.name).to.eql('Ana María'));",
+                  "pm.test('Email sin cambios', () => pm.expect(user.email).to.eql(pm.collectionVariables.get('userEmail')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actualizar con su propio email (no es conflicto)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users/{{userId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users - Casos de error",
+      "item": [
+        {
+          "name": "Email duplicado al crear (409)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Otra\",\n  \"email\": \"{{userEmail}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Mensaje de error', () => pm.expect(pm.response.json().error).to.eql('El email ya está registrado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Email duplicado al actualizar otro usuario (409)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users/{{secondUserId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Email inválido (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pepe\",\n  \"email\": \"sin-arroba\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje de error', () => pm.expect(pm.response.json().error).to.eql('Email inválido'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Nombre vacío (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"   \",\n  \"email\": \"{{$randomEmail}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje de error', () => pm.expect(pm.response.json().error).to.eql('El nombre es obligatorio'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Falta un campo en el JSON (422, lo rechaza Axum)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sin email\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 422', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "JSON mal formado (400, lo rechaza Axum)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Roto\", "
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Usuario inexistente (404)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/users/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Mensaje de error', () => pm.expect(pm.response.json().error).to.eql('Usuario no encontrado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Id no numérico (400, lo rechaza Axum)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/users/abc"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Método no permitido (405)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/users/{{userId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 405', () => pm.response.to.have.status(405));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users - Borrado",
+      "item": [
+        {
+          "name": "Borrar usuario (204)",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/users/{{secondUserId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Obtener usuario borrado (404)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/users/{{secondUserId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrar de nuevo (404)",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/users/{{secondUserId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
